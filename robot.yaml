@@ -6,7 +6,8 @@ tasks:
   Run all tasks:
     shell: python -m robot --report NONE --outputdir output --logtitle "Task log" tasks.robot
 
-condaConfigFile: conda.yaml
+condaConfigFile:
+  conda.yaml
 
 environmentConfigs:
   - environment_windows_amd64_freeze.yaml
@@ -15,8 +16,11 @@ environmentConfigs:
   - conda.yaml
 
 artifactsDir:
-  output  
+  output
 
+OutputDir:
+  output
+  
 PATH:
   - .
 PYTHONPATH:

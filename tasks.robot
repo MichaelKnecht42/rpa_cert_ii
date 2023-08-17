@@ -8,24 +8,32 @@ Documentation       Orders robots from RobotSpareBin Industries Inc.
 Library             RPA.Browser.Selenium    auto_close=${FALSE}
 Library             RPA.HTTP
 Library             RPA.Tables
+Library             RPA.PDF
+Library             RPA.Windows
+Library             RPA.Archive
 
 
 *** Variables ***
-${ORDER_TABLE}      ${EMPTY}
+${ORDER_TABLE}                  ${EMPTY}
+${PDF_FILE}                     ${EMPTY}
+${PDF_RECEIPTS_FOLDER}          ${CURDIR}${/}output${/}receipts${/}
+${robot_preview_file}           ${EMPTY}
+${robot_preview_screenshot}     ${EMPTY}
 
 
 *** Tasks ***
 Order robots from RobotSpareBin Industries Inc
+    Download orders
     Open the robot order website
     Close the annoying modal
-    Download orders
     Submit orders
+    Create a ZIP file with the PDF receipt files
     [Teardown]    Close the browser
 
 
 *** Keywords ***
 Open the robot order website
-    Open Browser    https://robotsparebinindustries.com/#/robot-order
+    Open Available Browser    https://robotsparebinindustries.com/#/robot-order
 
 Close the annoying modal
     Click Button When Visible    //button[@class="btn btn-dark"]
@@ -42,8 +50,7 @@ Submit orders
     FOR    ${order}    IN    @{ORDER_TABLE}
         Fill the form    ${order}[Head]    ${order}[Body]    ${order}[Legs]    ${order}[Address]
         Preview the robot
-        Submit the order
-        Wait Until Keyword Succeeds    3x    1s    Order another
+        Wait Until Keyword Succeeds    5x    1s    Finalize order    ${order}[Order number]
         Close the annoying modal
     END
 
@@ -57,13 +64,36 @@ Fill the form
 Preview the robot
     Click Button When Visible    //button[@id="preview"]
 
-Submit the order
+Click order button
     Click Button    //button[@id="order"]
 
-Order another
-    TRY
-        Click Button    //button[@id="order-another"]
-    EXCEPT
-        Submit the order
-        Click Button    //button[@id="order-another"]
-    END
+Finalize order
+    [Arguments]    ${order_number}
+    Click order button
+    ${PDF_FILE}=    Store the order receipt as a PDF file    ${order_number}
+    Take a screenshot of the robot image and append to receipt PDF    ${order_number}    ${PDF_FILE}
+    Click Button    //button[@id="order-another"]
+
+Store the order receipt as a PDF file
+    [Arguments]    ${order_number}
+    ${PDF_FILE}=    Set Variable    ${PDF_RECEIPTS_FOLDER}Order_${order_number}_receipt.pdf
+    Wait Until Element Is Visible    id:receipt
+    ${sales_results_html}=    Get Element Attribute    id:receipt    outerHTML
+    Html To Pdf    ${sales_results_html}    ${PDF_FILE}
+    RETURN    ${PDF_FILE}
+
+Take a screenshot of the robot image and append to receipt PDF
+    [Arguments]    ${order_number}    ${PDF_FILE}
+    ${robot_preview_file}=    Set Variable    ${CURDIR}${/}output${/}preview${/}Order_${order_number}_robot_preview.png
+    ${robot_preview_screenshot}=    RPA.Browser.Selenium.Screenshot    id:robot-preview-image    ${robot_preview_file}
+    ${files}=    Create List    ${robot_preview_file}
+    Add Files To Pdf
+    ...    ${files}
+    ...    ${PDF_FILE}
+    ...    ${True}
+
+Create a ZIP file with the PDF receipt files
+    ${zip_file_name}=    Set Variable    ${OUTPUT_DIR}/PDFs.zip
+    Archive Folder With Zip
+    ...    ${PDF_RECEIPTS_FOLDER}
+    ...    ${zip_file_name}
